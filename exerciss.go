@@ -22,8 +22,8 @@ type TablePossibleSolutions struct {
 
 func main() {
 	board := [][]int{
-		[]int{2, 0},
 		[]int{0, 0},
+		[]int{2, 0},
 	}
 	var l = List{}
 	var t = List{}
@@ -47,22 +47,62 @@ func doRestrict(board [][]int, l, t List) {
 			}
 		}
 	}
-	//l.solveSudoku()
+	solveSudoku(l, t)
 }
 
-/*func solveSudoku(l List) {
+func solveSudoku(l, t List) {
 	// составим Map с количеством единиц в столбцах
-	//mapOnesInCols := findMapOnesInCols()
-	var mapOnesInCols map[int]int = l.findMapOnesInCols()
+	mapOnesInCols := findMapOnesInCols(l)
 	fmt.Println(mapOnesInCols)
-	for i := 1; i <= len(mapOnesInCols); i++ {
+	if colNum, ok := mapOnesInCols[1]; ok {
+		numRowWithOne := findNumRowWithOne(colNum, l) //найдем номер строки с одной единицей
+		fmt.Println("num row with one = ", numRowWithOne)
+		t = addToTableProbableSolution(numRowWithOne, l, t)
+	}
+
+	/*for i := 1; i <= len(mapOnesInCols); i++ {
 		//fmt.Println(i, mapOnesInCols[i])
 		if mapOnesInCols[i] == 1 {
 			//l.coverCol(i)
 			break
 		}
+	}*/
+}
+
+func addToTableProbableSolution(numRowWithOne int, l, t List) List { //будем добавлять строку в таблицу возможных ответов
+
+	return t
+}
+
+func findNumRowWithOne(colNum int, l List) int {
+	colMain := l.head
+	for colMain.col != colNum {
+		colMain = colMain.nextRight
 	}
-}*/
+	colMain = colMain.nextDown
+	return colMain.row
+}
+
+func findMapOnesInCols(l List) map[int]int {
+	var mapOnesInCols map[int]int = make(map[int]int) //key - количество единиц в столбце, val - номер столбца
+	colMain := l.head.nextRight
+	for i := 1; i <= 12; i++ {
+
+		cntr := 0
+		colCurr := colMain
+		for colCurr.nextDown != nil {
+			cntr++
+			colCurr = colCurr.nextDown
+		}
+		if cntr > 0 { //в map помещаем только не нулевые столбцы
+			mapOnesInCols[cntr] = i
+		}
+		if i < 12 {
+			colMain = colMain.nextRight
+		}
+	}
+	return mapOnesInCols
+}
 
 func doCowerRow(l List, numRowRemove int) List { //накрываем строку
 	rowCower := l.head
