@@ -6,49 +6,95 @@ import (
 	//"sync"
 )
 
-var rowNet [12]Node
-var colNet [8]Node
-var accumulator [12]int //накапливаем значения строк
+var finish bool
 
 func SolveAlgX2(board [2][2]int) [2][2]int {
-	fillNet(&board)
+	finish = false
+	var rowNet [12]Node
+	var colNet [8]Node
+	var accumulator [12]int //накапливаем значения строк
+	rowNet, colNet = fillNet(&board, rowNet, colNet)
+	loopCovers(rowNet, colNet, accumulator)
 	//сделаем в цикле
-	numColOneNode := findOneInCol()
-	fmt.Println("numColOneNode = ", numColOneNode)
-	rowToAccum(numColOneNode)
+	/*for {
+		if numColOneNode := findOneInCol(); numColOneNode > 0 {
+			fmt.Println("numColOneNode = ", numColOneNode)
+			rowToAccum(numColOneNode)
+			printNetToFile("net2.txt")
+		} else {
+			break
+		}
+	}*/
 
 	return board
 }
 
-func rowToAccum(numColOneNode int) { //помещаем строку в аккумулятор
+func loopCovers(rowNet [12]Node, colNet [8]Node, accumulator [12]int) {
+	if finish {
+		return
+	}
+	//finish = true
+	if numColOneNode := findOneInCol(rowNet); numColOneNode > 0 {
+		fmt.Println("numColOneNode = ", numColOneNode)
+		accumulator = rowToAccum(numColOneNode, rowNet, colNet, accumulator)
+		fmt.Println(accumulator)
+		printNetToFile("net2.txt", colNet)
+		//loopCovers(rowNet, colNet, accumulator)
+	} else {
+		finish = true
+	}
+}
+
+func rowToAccum(numColOneNode int, rowNet [12]Node, colNet [8]Node, accumulator [12]int) [12]int { //помещаем строку в аккумулятор
 	//fmt.Println("colNet[numColOneNode].nextRight.col = ", colNet[rowNet[numColOneNode].nextDown.row].nextRight.col)
 	accumulator[colNet[rowNet[numColOneNode].nextDown.row].nextRight.col]++
 	accumulator[colNet[rowNet[numColOneNode].nextDown.row].nextRight.nextRight.col]++
 	accumulator[colNet[rowNet[numColOneNode].nextDown.row].nextRight.nextRight.nextRight.col]++
-	fmt.Println(accumulator)
+
+	//fmt.Println(accumulator)
 	row := rowNet[numColOneNode].nextDown.row //находим номер строки одинокой ноды
 	nextNode := colNet[row]
 	for nextNode.nextRight != nil {
-		coverRows(nextNode)
 		nextNode = *nextNode.nextRight
+		if nextNode.nextDown != nil {
+			coverRows(*nextNode.nextDown, colNet)
+		}
+		if nextNode.nextUp.data == 1 {
+			coverRows(*nextNode.nextUp, colNet)
+		}
 	}
+	coverRows(nextNode, colNet)
+	return accumulator
 }
 
-func coverRows(nextNode Node) {
-
+func coverRows(nextNode Node, colNet [8]Node) {
+	fmt.Println("cover node col=", nextNode.col, ", row=", nextNode.row)
+	rootNode := colNet[nextNode.row]
+	for rootNode.nextRight != nil {
+		//двигаемся вправо и накрываем по вертикали
+		rootNode = *rootNode.nextRight
+		if rootNode.nextDown == nil {
+			rootNode.nextUp.nextDown = nil
+		} else {
+			rootNode.nextUp.nextDown = rootNode.nextDown
+			rootNode.nextDown.nextUp = rootNode.nextUp
+		}
+	}
+	colNet[nextNode.row].nextRight = nil
 }
 
-func findOneInCol() int { //находим столбец с одной нодой
-	numCol := 0
-	for ; numCol < 12; numCol++ {
+func findOneInCol(rowNet [12]Node) int { //находим столбец с одной нодой
+	result := -1
+	for numCol := 0; numCol < 12; numCol++ {
 		if rowNet[numCol].nextDown != nil && rowNet[numCol].nextDown.nextDown == nil {
+			result = numCol
 			break
 		}
 	}
-	return numCol
+	return result
 }
 
-func fillNet(board *[2][2]int) { //заполняем сеть
+func fillNet(board *[2][2]int, rowNet [12]Node, colNet [8]Node) ([12]Node, [8]Node) { //заполняем сеть
 
 	for row := 0; row < 2; row++ {
 		for col := 0; col < 2; col++ {
@@ -58,7 +104,7 @@ func fillNet(board *[2][2]int) { //заполняем сеть
 				for val := 1; val <= 2; val++ {
 					//ограничения в ячейках
 					rNet := 4*row + 2*col + val - 1
-					node := &Node{row: rNet, col: cNet}
+					node := &Node{row: rNet, col: cNet, data: 1}
 					colNet[rNet].nextRight = node
 					node.nextLeft = &colNet[rNet]
 					if rowNet[cNet].nextDown == nil {
@@ -78,7 +124,7 @@ func fillNet(board *[2][2]int) { //заполняем сеть
 					} else {
 						cNet = 6 + row
 					}
-					node := &Node{row: rNet, col: cNet}
+					node := &Node{row: rNet, col: cNet, data: 1}
 					colNet[rNet].nextRight.nextRight = node
 					node.nextLeft = colNet[rNet].nextRight
 					if rowNet[cNet].nextDown == nil {
@@ -97,7 +143,7 @@ func fillNet(board *[2][2]int) { //заполняем сеть
 					} else {
 						cNet = 10 + row
 					}
-					node := &Node{row: rNet, col: cNet}
+					node := &Node{row: rNet, col: cNet, data: 1}
 					colNet[rNet].nextRight.nextRight.nextRight = node
 					node.nextLeft = colNet[rNet].nextRight.nextRight
 					if rowNet[cNet].nextDown == nil {
@@ -112,7 +158,7 @@ func fillNet(board *[2][2]int) { //заполняем сеть
 				//ограничения в ячейках
 				cNet := 2*row + 1*col
 				rNet := 4*row + 2*col + board[row][col] - 1
-				node := &Node{row: rNet, col: cNet}
+				node := &Node{row: rNet, col: cNet, data: 1}
 				colNet[rNet].nextRight = node
 				node.nextLeft = &colNet[rNet]
 				if rowNet[cNet].nextDown == nil {
@@ -129,7 +175,7 @@ func fillNet(board *[2][2]int) { //заполняем сеть
 				} else {
 					cNet = 6 + row
 				}
-				node = &Node{row: rNet, col: cNet}
+				node = &Node{row: rNet, col: cNet, data: 1}
 				colNet[rNet].nextRight.nextRight = node
 				node.nextLeft = colNet[rNet].nextRight
 				if rowNet[cNet].nextDown == nil {
@@ -146,7 +192,7 @@ func fillNet(board *[2][2]int) { //заполняем сеть
 				} else {
 					cNet = 10 + row
 				}
-				node = &Node{row: rNet, col: cNet}
+				node = &Node{row: rNet, col: cNet, data: 1}
 				colNet[rNet].nextRight.nextRight.nextRight = node
 				node.nextLeft = colNet[rNet].nextRight.nextRight
 				if rowNet[cNet].nextDown == nil {
@@ -163,24 +209,23 @@ func fillNet(board *[2][2]int) { //заполняем сеть
 
 	//printCol()
 	//fmt.Println("-------")
-	printRow()
-	printNetToFile("net.txt")
+	//printRow()
+	printNetToFile("net.txt", colNet)
+	return rowNet, colNet
 }
 
-func printCol() {
+/*func printCol() {
 	for i := 0; i < 8; i++ {
 		fmt.Println(colNet[i].nextRight)
 	}
-}
-func printRow() {
+}*/
+/*func printRow() {
 	fmt.Println(rowNet[11].nextDown)
 	fmt.Println(rowNet[11].nextDown.nextDown)
-	/*for i := 0; i < 12; i++ {
-		fmt.Println(rowNet[i].nextDown.nextDown)
-	}*/
-}
 
-func printNetToFile(fileName string) {
+}*/
+
+func printNetToFile(fileName string, colNet [8]Node) {
 	fo, err := os.Create(fileName) // open output file
 	if err != nil {
 		panic(err)

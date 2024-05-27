@@ -29,9 +29,9 @@ func main() {
 	fmt.Printf("duration backtracking %d us\n", dur.Nanoseconds())
 
 	board3 := [2][2]int{}
-	board3[0][0] = 2
+	board3[1][1] = 2
 	before = time.Now()
-	answ3 := algorithms.SolveAlgX2(board3)
+	answ3 := algorithms.SolveAlgX3(board3)
 	after = time.Now()
 	dur = after.Sub(before)
 	fmt.Println(answ3)
