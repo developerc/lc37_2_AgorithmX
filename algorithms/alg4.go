@@ -10,27 +10,35 @@ type NodeNet struct {
 	rowNet [12]Node
 }
 
+var n int
+
 func SolveAlgX4(board [2][2]int) [2][2]int {
 	colRowNet := fillNet4(&board)
-	printNetToFile4("net.txt", colRowNet)
-	algX(colRowNet)
+	//printNetToFile4("net"+strconv.Itoa(n)+".txt", colRowNet)
+	algX(colRowNet, &board)
 	return board
 }
 
-func algX(colRowNet NodeNet) {
-	//var mapOnesInCols map[int]int = make(map[int]int) //key - количество единиц в столбце, val - номер столбца
+func algX(colRowNet NodeNet, board *[2][2]int) [2][2]int {
+	if isTableEmpty(colRowNet) {
+		return *board
+	}
+	n++
 	for i := 0; i < 12; i++ { //будем искать столбцы с одной нодой
 		if colRowNet.rowNet[i].nextDown != nil && colRowNet.rowNet[i].nextDown.nextDown == nil {
-			//fmt.Println(colRowNet.rowNet[i].nextDown)
-			colRowNet = coverRows4(colRowNet, i)
-			printNetToFile4("net2.txt", colRowNet)
+			colRowNet, *board = coverRows4(colRowNet, i, board)
+			//printNetToFile4("net"+strconv.Itoa(n)+".txt", colRowNet)
+			algX(colRowNet, board)
+			break
 		}
 	}
+	return *board
 }
 
-// исправить! закрывается лишняя строка!
-func coverRows4(colRowNet NodeNet, i int) NodeNet {
-	rowForCover := colRowNet.rowNet[i].nextDown.row              //главная строка для покрытия
+func coverRows4(colRowNet NodeNet, i int, board *[2][2]int) (NodeNet, [2][2]int) {
+	rowForCover := colRowNet.rowNet[i].nextDown.row //главная строка для покрытия
+	*board = buildBoard(rowForCover, board)
+	//fmt.Println("строка возможного ответа: rowForCover = ", rowForCover)
 	if colRowNet.colNet[rowForCover].nextRight.nextDown != nil { //смотрим вправо на одну ноду и вниз
 		colRowNet = coverSecondRow(colRowNet, colRowNet.colNet[rowForCover].nextRight.nextDown.row)
 	}
@@ -38,50 +46,90 @@ func coverRows4(colRowNet NodeNet, i int) NodeNet {
 		colRowNet = coverSecondRow(colRowNet, colRowNet.colNet[rowForCover].nextRight.nextUp.row)
 	}
 	//--
-	if colRowNet.colNet[rowForCover].nextRight.nextRight.nextDown != nil { //смотрим вправо на одну ноду и вниз
+	if colRowNet.colNet[rowForCover].nextRight.nextRight.nextDown != nil { //смотрим вправо на 2 ноду и вниз
 		colRowNet = coverSecondRow(colRowNet, colRowNet.colNet[rowForCover].nextRight.nextRight.nextDown.row)
 	}
-	if colRowNet.colNet[rowForCover].nextRight.nextRight.nextUp.data != 0 { //смотрим вправо на одну ноду и вверх
+	if colRowNet.colNet[rowForCover].nextRight.nextRight.nextUp.data != 0 { //смотрим вправо на 2 ноду и вверх
 		colRowNet = coverSecondRow(colRowNet, colRowNet.colNet[rowForCover].nextRight.nextRight.nextUp.row)
 	}
 	//--
-	if colRowNet.colNet[rowForCover].nextRight.nextRight.nextRight.nextDown != nil { //смотрим вправо на одну ноду и вниз
+	if colRowNet.colNet[rowForCover].nextRight.nextRight.nextRight.nextDown != nil { //смотрим вправо на 3 ноду и вниз
 		colRowNet = coverSecondRow(colRowNet, colRowNet.colNet[rowForCover].nextRight.nextRight.nextRight.nextDown.row)
 	}
-	if colRowNet.colNet[rowForCover].nextRight.nextRight.nextUp.data != 0 { //смотрим вправо на одну ноду и вверх
+	//--
+	if colRowNet.colNet[rowForCover].nextRight.nextRight.nextRight.nextUp.data != 0 { //смотрим вправо на 3 ноду и вверх
 		colRowNet = coverSecondRow(colRowNet, colRowNet.colNet[rowForCover].nextRight.nextRight.nextRight.nextUp.row)
 	}
-	//colRowNet.colNet[rowForCover].nextRight = nil
-	return colRowNet
+
+	colRowNet = coverSecondRow(colRowNet, rowForCover)
+	return colRowNet, *board
 }
 
 func coverSecondRow(colRowNet NodeNet, row int) NodeNet {
-	if colRowNet.colNet[row].nextRight.nextDown != nil {
-		colRowNet.colNet[row].nextRight.nextDown.nextUp = colRowNet.colNet[row].nextRight.nextUp
-		colRowNet.colNet[row].nextRight.nextUp.nextDown = colRowNet.colNet[row].nextRight.nextDown
-	} else {
-		colRowNet.colNet[row].nextRight.nextUp.nextDown = nil
+	//fmt.Println("coverSecondRow row = ", row)
+	//-- 1
+	if colRowNet.colNet[row].nextRight.nextUp.data != 0 { //если выше не шапка
+		if colRowNet.colNet[row].nextRight.nextDown != nil {
+			colRowNet.colNet[row].nextRight.nextDown.nextUp = colRowNet.colNet[row].nextRight.nextUp
+			colRowNet.colNet[row].nextRight.nextUp.nextDown = colRowNet.colNet[row].nextRight.nextDown
+		} else {
+			colRowNet.colNet[row].nextRight.nextUp.nextDown = nil
+		}
+	} else { //если выше шапка
+		col := colRowNet.colNet[row].nextRight.nextUp.col
+		if colRowNet.colNet[row].nextRight.nextDown != nil {
+			colRowNet.rowNet[col].nextDown.nextDown.nextUp = &colRowNet.rowNet[col]
+			colRowNet.rowNet[col].nextDown = colRowNet.colNet[row].nextRight.nextDown
+		} else {
+			colRowNet.rowNet[col].nextDown = nil
+		}
 	}
-	//--
-	if colRowNet.colNet[row].nextRight.nextRight.nextDown != nil {
-		colRowNet.colNet[row].nextRight.nextRight.nextDown.nextUp = colRowNet.colNet[row].nextRight.nextRight.nextUp
-		colRowNet.colNet[row].nextRight.nextRight.nextUp.nextDown = colRowNet.colNet[row].nextRight.nextRight.nextDown
-	} else {
-		colRowNet.colNet[row].nextRight.nextRight.nextUp.nextDown = nil
+	//-- 2
+	if colRowNet.colNet[row].nextRight.nextRight.nextUp.data != 0 { //если выше не шапка
+		if colRowNet.colNet[row].nextRight.nextRight.nextDown != nil {
+			colRowNet.colNet[row].nextRight.nextRight.nextDown.nextUp = colRowNet.colNet[row].nextRight.nextRight.nextUp
+			colRowNet.colNet[row].nextRight.nextRight.nextUp.nextDown = colRowNet.colNet[row].nextRight.nextRight.nextDown
+		} else {
+			colRowNet.colNet[row].nextRight.nextRight.nextUp.nextDown = nil
+		}
+	} else { //если выше шапка
+		col := colRowNet.colNet[row].nextRight.nextRight.nextUp.col
+		if colRowNet.colNet[row].nextRight.nextRight.nextDown != nil {
+			colRowNet.rowNet[col].nextDown.nextDown.nextUp = &colRowNet.rowNet[col]
+			colRowNet.rowNet[col].nextDown = colRowNet.colNet[row].nextRight.nextRight.nextDown
+		} else {
+			colRowNet.rowNet[col].nextDown = nil
+		}
 	}
-	//--
-	if colRowNet.colNet[row].nextRight.nextRight.nextRight.nextDown != nil {
-		colRowNet.colNet[row].nextRight.nextRight.nextRight.nextDown.nextUp = colRowNet.colNet[row].nextRight.nextRight.nextRight.nextUp
-		colRowNet.colNet[row].nextRight.nextRight.nextRight.nextUp.nextDown = colRowNet.colNet[row].nextRight.nextRight.nextRight.nextDown
-	} else {
-		colRowNet.colNet[row].nextRight.nextRight.nextRight.nextUp.nextDown = nil
+	//-- 3
+	if colRowNet.colNet[row].nextRight.nextRight.nextRight.nextUp.data != 0 { //если выше не шапка
+		if colRowNet.colNet[row].nextRight.nextRight.nextRight.nextDown != nil {
+			colRowNet.colNet[row].nextRight.nextRight.nextRight.nextDown.nextUp = colRowNet.colNet[row].nextRight.nextRight.nextRight.nextUp
+			colRowNet.colNet[row].nextRight.nextUp.nextDown = colRowNet.colNet[row].nextRight.nextDown
+		} else {
+			colRowNet.colNet[row].nextRight.nextRight.nextRight.nextUp.nextDown = nil
+		}
+	} else { //если выше шапка
+		col := colRowNet.colNet[row].nextRight.nextRight.nextRight.nextUp.col
+		if colRowNet.colNet[row].nextRight.nextRight.nextRight.nextDown != nil {
+			colRowNet.rowNet[col].nextDown.nextDown.nextUp = &colRowNet.rowNet[col]
+			colRowNet.rowNet[col].nextDown = colRowNet.colNet[row].nextRight.nextRight.nextRight.nextDown
+		} else {
+			colRowNet.rowNet[col].nextDown = nil
+		}
 	}
+
 	colRowNet.colNet[row].nextRight = nil
 	return colRowNet
 }
 
 func fillNet4(board *[2][2]int) NodeNet {
 	nodeNet := NodeNet{}
+
+	for i := 0; i < 12; i++ {
+		nodeNet.rowNet[i].col = i
+	}
+
 	var cNet, rNet int
 	for row := 0; row < 2; row++ {
 		for col := 0; col < 2; col++ {
@@ -139,7 +187,6 @@ func fillNet4(board *[2][2]int) NodeNet {
 					nodeNet.rowNet[cNet].nextDown.nextDown = node
 					node.nextUp = nodeNet.rowNet[cNet].nextDown
 				}
-				//fmt.Println(node)
 			}
 			//ограничения в столбцах
 			for val := 1; val <= valEnd; val++ {
@@ -148,15 +195,11 @@ func fillNet4(board *[2][2]int) NodeNet {
 				} else {
 					rNet = 4*row + 2*col + val - 1 //ряд
 				}
-				//уточнить!
 				if valEnd == 2 {
-					//cNet = 8 + (board[row][col]/2)*2 + col
 					if val == 1 {
 						cNet = 8 + (board[row][col]/2)*2 + col
-						//cNet = 8 + row + col
 					} else {
 						cNet = 10 + (board[row][col]/2)*2 + col
-						//cNet = 10 + row + col
 					}
 				} else {
 					if board[row][col] == 1 {
@@ -183,6 +226,37 @@ func fillNet4(board *[2][2]int) NodeNet {
 	return nodeNet
 }
 
+func isTableEmpty(colRowNet NodeNet) bool {
+	for i := 0; i < len(colRowNet.colNet); i++ {
+		if colRowNet.colNet[i].nextRight != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func buildBoard(rowForCover int, board *[2][2]int) [2][2]int {
+	switch rowForCover {
+	case 0:
+		board[0][0] = 1
+	case 1:
+		board[0][0] = 2
+	case 2:
+		board[0][1] = 1
+	case 3:
+		board[0][1] = 2
+	case 4:
+		board[1][0] = 1
+	case 5:
+		board[1][0] = 2
+	case 6:
+		board[1][1] = 1
+	case 7:
+		board[1][1] = 2
+	}
+	return *board
+}
+
 func printNetToFile4(fileName string, colRowNet NodeNet) {
 	fo, err := os.Create(fileName) // open output file
 	if err != nil {
@@ -196,26 +270,26 @@ func printNetToFile4(fileName string, colRowNet NodeNet) {
 		}
 	}
 	for i := 0; i < 8; i++ {
-		fo.WriteString(fmt.Sprintf("\n"))
+		fo.WriteString("\n")
 		if colRowNet.colNet[i].nextRight == nil {
 			continue
 		}
 		numTabs := colRowNet.colNet[i].nextRight.col
 		for k := 0; k < numTabs; k++ {
-			fo.WriteString(fmt.Sprintf("\t"))
+			fo.WriteString("\t")
 		}
-		fo.WriteString(fmt.Sprintf("1"))
+		fo.WriteString("1")
 		//--
 		numTabs = colRowNet.colNet[i].nextRight.nextRight.col - colRowNet.colNet[i].nextRight.col
 		for k := 0; k < numTabs; k++ {
-			fo.WriteString(fmt.Sprintf("\t"))
+			fo.WriteString("\t")
 		}
-		fo.WriteString(fmt.Sprintf("1"))
+		fo.WriteString("1")
 		//--
 		numTabs = colRowNet.colNet[i].nextRight.nextRight.nextRight.col - colRowNet.colNet[i].nextRight.nextRight.col
 		for k := 0; k < numTabs; k++ {
-			fo.WriteString(fmt.Sprintf("\t"))
+			fo.WriteString("\t")
 		}
-		fo.WriteString(fmt.Sprintf("1"))
+		fo.WriteString("1")
 	}
 }
